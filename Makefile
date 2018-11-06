@@ -8,7 +8,7 @@ PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = jdata
-PYTHON_INTERPRETER = python3
+PYTHON_INTERPRETER = python3.7
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -27,16 +27,33 @@ requirements: test_environment
 
 ## Make Dataset
 data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py
+	
+	./script/check_raw_data.sh
+	
+	./src/data/concat_action_files.sh
+	$(PYTHON_INTERPRETER) -m src.data.drop_duplicated_actions
+	$(PYTHON_INTERPRETER) -m src.data.merge_all_files
+
+	$(PYTHON_INTERPRETER) -m src.data.split_train_test run data/interim/all_merged.csv 2016-02-02 2016-04-02 2016-04-09 unix_action --unix_time=True --version=1.0
+	$(PYTHON_INTERPRETER) -m src.data.split_train_test run data/interim/all_merged.csv 2016-02-09 2016-04-09 2016-04-16 unix_action --unix_time=True --version=online
+
+	$(PYTHON_INTERPRETER) -m src.features.build_features all_merged 1.0
+	$(PYTHON_INTERPRETER) -m src.features.build_features all_merged online
 
 ## Delete all compiled Python files
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
 
-## Lint using flake8
+## Lint using flake8, mypy and black
 lint:
 	flake8 src
+	mypy src
+	black src
+
+## Test
+test:
+	@tox
 
 ## Upload Data to S3
 sync_data_to_s3:
@@ -57,18 +74,14 @@ endif
 ## Set up python interpreter environment
 create_environment:
 ifeq (True,$(HAS_CONDA))
-		@echo ">>> Detected conda, creating conda environment."
-ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
-	conda create --name $(PROJECT_NAME) python=3
-else
-	conda create --name $(PROJECT_NAME) python=2.7
-endif
-		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
+	@echo ">>> Detected conda, creating conda environment."
+	conda create --name $(PROJECT_NAME) python=3.7
+	@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
 else
 	@pip install -q virtualenv virtualenvwrapper
 	@echo ">>> Installing virtualenvwrapper if not already intalled.\nMake sure the following lines are in shell startup file\n\
 	export WORKON_HOME=$$HOME/.virtualenvs\nexport PROJECT_HOME=$$HOME/Devel\nsource /usr/local/bin/virtualenvwrapper.sh\n"
-	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER)"
+	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv --python=$(PYTHON_INTERPRETER) $(PROJECT_NAME)"
 	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
 endif
 

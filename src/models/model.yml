@@ -1,0 +1,17 @@
+all_merged-1.0:
+  model:
+    input:
+      folder: processed
+      name: all_merged.v1.0.feather
+      label: all_merged.v1.0.label.feather
+      drop_columns:
+        - user_id
+        - label
+      fillna: -1
+    features: None
+    train:
+      start: '2016-02-02 00:00:00'
+      end: '2016-04-09 00:00:00'
+    test:
+      start: '2016-04-09 00:00:00'
+      end: '2016-04-16 00:00:00'
