@@ -22,7 +22,7 @@ colorama==0.3.9
 configparser==3.5.0
 coverage==4.5.1
 cycler==0.10.0
-dask==0.19.2
+dask==2021.10.0
 databricks-cli==0.8.2
 decorator==4.3.0
 defusedxml==0.5.0
